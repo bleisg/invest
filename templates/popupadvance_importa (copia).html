@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block content %}
+{% load humanize %}
+{% load staticfiles %}
+
+<script type="text/javascript" id="pdf-js" src="{% static 'pdf.js' %}"></script>
+<script type='text/javascript'>
+
+function convertDataURIToBinary(dataURI) {
+	var BASE64_MARKER = ';base64,';
+	var base64Index = dataURI.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
+	var base64 = dataURI.substring(base64Index);
+	var raw = window.atob(base64);
+	var rawLength = raw.length;
+	var array = new Uint8Array(new ArrayBuffer(rawLength));
+
+	for(var i = 0; i < rawLength; i++) {
+		array[i] = raw.charCodeAt(i);
+	}
+	
+	return array;
+}
+
+function Pdf2TextClass(){
+     var self = this;
+     this.complete = 0;
+
+    /**
+     *
+     * @param data ArrayBuffer of the pdf file content
+     * @param callbackPageDone To inform the progress each time
+     *        when a page is finished. The callback function's input parameters are:
+     *        1) number of pages done;
+     *        2) total number of pages in file.
+     * @param callbackAllDone The input parameter of callback function is 
+     *        the result of extracted text from pdf file.
+     *
+     */
+     this.pdfToText = function(data, callbackAllDone){
+     console.assert( data  instanceof ArrayBuffer  || typeof data == 'string' );
+     PDFJS.getDocument( data ).then( function(pdf) {
+     var div = document.getElementById('viewer');
+
+     var total = pdf.numPages;
+     //callbackPageDone( 0, total );        
+     var layers = {};        
+     for (i = 1; i <= total; i++){
+        pdf.getPage(i).then( function(page){
+        var n = page.pageNumber;
+        page.getTextContent().then( function(textContent){
+          if( null != textContent.items ){
+            var page_text = "";
+            var last_block = null;
+            for( var k = 0; k < textContent.items.length; k++ ){
+                var block = textContent.items[k];
+                if( last_block != null && last_block.str[last_block.str.length-1] != ' '){
+                    if( block.x < last_block.x )
+                        page_text += "\r\n"; 
+                    else if ( last_block.y != block.y && ( last_block.str.match(/^(\s?[a-zA-Z])$|^(.+\s[a-zA-Z])$/) == null ))
+                        page_text += ' ';
+                }
+                page_text += block.str;
+                last_block = block;
+            }
+
+            textContent != null && console.log("page " + n + " finished."); //" content: \n" + page_text);
+            layers[n] =  page_text + "\n\n";
+          }
+          ++ self.complete;
+          //callbackPageDone( self.complete, total );
+          if (self.complete == total){
+            window.setTimeout(function(){
+              var full_text = "";
+              var num_pages = Object.keys(layers).length;
+              for( var j = 1; j <= num_pages; j++)
+                  full_text += layers[j] ;
+              callbackAllDone = full_text;
+            }, 1000);              
+          }
+        }); // end  of page.getTextContent().then
+      }); // end of page.then
+    } // of for
+  });
+ }; // end of pdfToText()
+}; // end of class
+
+
+function estraipdf2() {
+    /**
+     * Extract text from PDFs with PDF.js
+     * Uses the demo pdf.js from https://mozilla.github.io/pdf.js/getting_started/
+     */
+    
+    var reader = new FileReader();
+	var pdfAsArray = new ArrayBuffer;
+
+	url = document.getElementById('notareg').files.item(0);
+
+	reader.onload = function(event) {
+ 
+    	pdfAsArray = event.target.result;
+	};
+
+	reader.readAsArrayBuffer(url);
+
+	datapdf = new Uint8Array(pdfAsArray);
+
+    this.pdfToText = function(data) {
+
+        PDFJS.workerSrc = "{% static 'pdf.worker.js' %}";
+        //PDFJS.cMapUrl = 'js/vendor/pdfjs/cmaps/';
+        //PDFJS.cMapPacked = true;
+
+
+
+        return PDFJS.getDocument(data).then(function(pdf) {
+            var pages = [];
+            for (var i = 0; i < pdf.numPages; i++) {
+                pages.push(i);
+            }
+            return Promise.all(pages.map(function(pageNumber) {
+                return pdf.getPage(pageNumber + 1).then(function(page) {
+                    return page.getTextContent().then(function(textContent) {
+                        return textContent.items.map(function(item) {
+                            return item.str;
+                        }).join(' ');
+                    });
+                });
+            })).then(function(pages) {
+                return pages.join("\r\n");
+            });
+        });
+    }
+
+    self.pdfToText(pdfAsArray).then(function(result) {
+      document.getElementById('testoarea').innerHTML = result;
+ 	})
+
+}
+
+function estraipdf() {
+
+	if (typeof PDFJS === 'undefined') {
+		alert('Built version of PDF.js was not found.\n' +
+			'Please run `gulp generic`.');
+		return;
+	}
+	
+	//var txt="";
+	
+	// The workerSrc property shall be specified.
+	PDFJS.workerSrc = "{% static 'pdf.worker.js' %}";
+	
+	var reader = new FileReader();
+	var pdfAsArray = new Uint8Array;
+
+	url = document.getElementById('notareg').files.item(0);
+
+	reader.onload = function(event) {
+ 
+    	pdfAsArray = convertDataURIToBinary(event.target.result);
+	};
+	//Con reader.readAsDataURL(url) si ottiene un data:uri (base64) del file locale 
+	//(eg. data:application/pdf;base64,JVBERi0xLjUK...); tuttavia pdf.js richiede un url
+	//oppure un Uint8Array, per cui si tratta di convertire reader.result (ottenuto dopo la
+	//funzione readAsDataURL(url) in pdfAsArray
+	
+	reader.readAsDataURL(url);
+
+	
+	document.getElementById('Importa').disabled = false;
+
+
+
+
+
+	/*
+  	// Loading document and page text content
+  	PDFJS.getDocument(pdfAsArray).then(function (pdfDocument) {
+    		pdfDocument.getPage(1).then(function (page) {
+      			
+      			page.getTextContent().then(function (textContent) {
+        			textContent.items.forEach(function (textItem) {
+        				txt = txt + textItem.str + '\n';
+        
+        			});
+        		
+        		document.getElementById('testoarea').innerHTML = txt;
+      			});
+    		});
+  	});
+	*/
+
+	var txt_class = new Pdf2TextClass;
+	var txt = "";
+	var pagine=0;
+
+	txt_class.pdfToText(pdfAsArray,txt);
+
+	document.getElementById('testoarea').innerHTML = txt;
+
+  	var result="";
+  	if (txt.indexOf("COMPRA") == -1) {
+  		result += "VENDE\n";
+  	}
+  	else {
+  		result += "COMPRA\n";
+  	}
+
+  	for (var i in txt.split("\n")) {
+  		var t = i.split(" ");
+  		if (t.length) {
+  			switch (t[0]) {
+  				case "NOTA":
+  					result += "NOTA " + t[1] +"\n";
+
+  				case "NREG":
+  					result += i +"\n";
+
+  				case "DATA":
+  					result += "DATA " + t[2] +"\n";
+
+  				case "COMMISSIONI":
+  					result += "COSTO " + t[1] +"\n";
+
+  				case "ALTRI":
+  					result += "IMPOSTA " + t[4] +"\n";
+
+  				case "Rateo":
+  					result += "rateo " + t[2] +"\n";
+
+  				case "Imposta":
+  					result += "imposta_dietimi " + t[3] +"\n";
+
+  			}
+
+  		}
+
+  	}
+  	var inizio = txt.indexOf("CONTANTI");
+  	var fine = txt.indexOf("COMMISSIONI");
+
+  	var t = txt.substring(inizio,fine);
+  	var listat = t.match(/[.\d]+,\d\d[\d]*/g);
+
+  	result += "quantita " + listat[0].replace(/\./g,"").replace(/,/g,".") + "\n";
+	result += "costounitario " + listat[3].replace(/\./g,"").replace(/,/g,".") + "\n";
+
+	result += "isin " + t.match(/[A-Z]{2}[0-9A-Z]{9}[0-9]/g)[0] + "\n";
+
+/*#infine dobbiamo rintracciare il titolo e il gruppo di investimento
+	tit = ''
+	invest = ''
+	if titolo.objects.filter(isin=tt[4]):
+		tit = titolo.objects.filter(isin=listat[4])[0].id
+		invest = transazione.objects.filter(titolo=tit)[0].invest.nome
+	
+	single_data['titolo'] = tit
+	single_data['invest'] = invest
+	*/
+
+
+  	document.getElementById('testoarea').innerHTML = result;
+  	
+  	
+
+
+}
+
+</script>
+
+
+<h4>{% if worker == "new"%}
+        	Importa dati nuova transazione
+	{% else %}
+		Aggiorna transazione {{ worker }} - {{dat.nome}} del {{dat.data|date:"d/m/Y"}}	
+	{% endif %}</h4>
+		
+<br>
+<p>Caricare la nota informativa</p>
+<p><input type="file" name="notareg" id="notareg" onchange="estraipdf2()" ></p>	
+
+
+<form action="/return_popup_importa/?id={{worker}}" enctype="multipart/form-data" method="post">
+{% csrf_token %}
+<br><br>
+<textarea name="testo" id="testoarea" rows="10" cols="40">
+</textarea>
+<br>
+<input type="submit" value="Invia" id="Importa" disabled/>
+<input type="reset"  value="Reset">
+</form>
+	
+{% endblock %}
+

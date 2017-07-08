@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<script language="javascript">
+    function GetRowValue(val)
+    {
+        // hardcoded value used to minimize the code.
+        // ControlID can instead be passed as query string to the popup window
+        window.opener.document.getElementById("storedvalue").value = val;
+        window.close();
+
+    }
+
+    </script>
+{% load humanize %}
+<h3>{{ worker }}</h3>
+
+<h4>Scelta attuale: {% if attuale %}
+        		<td align=right>{{ attuale }}
+		{% else %}
+			Nessuna
+		{% endif %}</h4>
+		
+		
+<form action="/return_popup/?id={{worker.id}}" method="post">
+{% csrf_token %}
+
+<table>
+	<th>Scelta
+	<th>Id
+	<th>Apertura
+	<th>Chiusura
+	<tbody>
+	<br>
+    {% for lista in dat %}
+    	<tr class="{% cycle 'odd' 'even' %}">
+    		<td><input type="radio" name="choice" id="choice{{ forloop.counter }}" value="{{lista.label}}" />
+    		<td>{{lista.label}}</a>
+		<td>{{lista.inizio|date:"d/m/Y"}}
+        	{% if lista.aperta %}
+        		<td align=right>APERTA
+		{% else %}
+			<td align=right>{{lista.fine|date:"d/m/Y"}}
+		{% endif %}
+        	
+        </tr>
+
+    {% endfor %}
+    
+	</tbody>
+	</table>
+
+<input type="submit" value="Salva" />
+</form>
+	
+{% endblock %}
+

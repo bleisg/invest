@@ -1,0 +1,186 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+{% load humanize %}
+{% load staticfiles %}
+
+{% block branding %}
+<h1 id="site-name">{% if worker == "new"%}
+        	Importa transazione da nota del TOL
+	{% else %}
+		Aggiorna transazione {{ worker }} - {{dat.nome}} del {{dat.data|date:"d/m/Y"}}
+	{% endif %}</h1>
+{% endblock %}
+
+<script type="text/javascript" id="pdf-js" src="{% static 'pdf.js' %}"></script>
+<script type='text/javascript'>
+
+var datiestratti = {};
+
+function parsingtext(txt){
+
+var result="";
+  		if (txt.indexOf("COMPRA") == -1) {
+  			result += "Vendita\n";
+  			datiestratti.tipo = "Vendita";
+  		}
+  		else {
+  			result += "Acquisto\n";
+  			datiestratti.tipo = "Acquisto";
+  		}
+
+	  	for (var i in txt.split("\n")) {
+	  		//var t = txt.split("\n")[i].split(" ");
+	  		var t = txt.split("\n")[i].trim().replace(/\s+/g," ").split(" ");
+	  		if (t.length) {
+	  			switch (t[0]) {
+	  				case "NOTA":
+	  					result += "NOTAREG " + t[1] + "\n";
+	  					datiestratti.notareg = t[1];
+	  					break;
+
+	  				case "NREG":
+	  					result += txt.split("\n")[i].replace(/\s+/g," ") + "\n";
+	  					datiestratti.nreg = txt.split("\n")[i].replace(/\s+/g," ");
+	  					break;
+
+	  				case "DATA":
+	  					result += "DATA " + t[2] +"\n";
+	  					datiestratti.data = t[2];
+	  					break;
+
+	  				case "COMMISSIONI":
+	  					result += "COSTO " + t[1].replace(/\./g,"").replace(/,/g,".") +"\n";
+	  					datiestratti.commissioni = t[1].replace(/\./g,"").replace(/,/g,".");
+	  					break;
+
+	  				case "ALTRI":
+	  					result += "IMPOSTA " + t[4].replace(/\./g,"").replace(/,/g,".") +"\n";
+	  					datiestratti.imposta = t[4].replace(/\./g,"").replace(/,/g,".")
+	  					break;
+
+	  				case "Rateo":
+	  					result += "rateo " + t[2].replace(/\./g,"").replace(/,/g,".") +"\n";
+	  					datiestratti.rateo = t[2].replace(/\./g,"").replace(/,/g,".");
+	  					break;
+
+	  				case "Imposta":
+	  					result += "imposta_dietimi " + t[3].replace(/\./g,"").replace(/,/g,".") +"\n";
+	  					datiestratti.imposta_dietimi = t[3].replace(/\./g,"").replace(/,/g,".");
+
+
+	  			}
+
+	  		}
+
+	  	}
+
+	  	var inizio = txt.indexOf("CONTANTI");
+	  	var fine = txt.indexOf("COMMISSIONI");
+
+	  	var t = txt.substring(inizio,fine);
+	  	var listat = t.match(/[.\d]+,\d\d[\d]*/g);
+
+	  	var quan = Number(listat[0].replace(/\./g,"").replace(/,/g,"."));
+	  	var cost = Number(listat[3].replace(/\./g,"").replace(/,/g,"."))/quan;
+
+	  	result += "quantita " + listat[0].replace(/\./g,"").replace(/,/g,".") + "\n";
+		result += "costounitario " + String(cost.toFixed(8)) + "\n";
+
+		result += "isin " + t.match(/[A-Z]{2}[0-9A-Z]{9}[0-9]/g)[0] + "\n";
+
+		datiestratti.quantita = listat[0].replace(/\./g,"").replace(/,/g,".");
+		datiestratti.costounitario = String(cost.toFixed(8));
+		datiestratti.isin =t.match(/[A-Z]{2}[0-9A-Z]{9}[0-9]/g)[0];
+
+	  	return result;
+
+}
+
+function estraipdf() {
+
+	if (typeof PDFJS === 'undefined') {
+		alert('Built version of PDF.js was not found.\n' +
+			'Please run `gulp generic`.');
+		return;
+	}
+
+  document.getElementById('testoconfronto').innerHTML = '{{ confronto }}';
+
+
+	// The workerSrc property shall be specified.
+	PDFJS.workerSrc = "{% static 'pdf.worker.js' %}";
+
+	var reader = new FileReader();
+	var pdfAsArray = new ArrayBuffer;
+
+	url = document.getElementById('notareg').files.item(0);
+
+
+	reader.onload = function(event) {
+
+    	pdfAsArray = event.target.result;
+    	var txt="";
+
+    	// Loading document and page text content
+  		PDFJS.getDocument(pdfAsArray).then(function (pdfDocument) {
+    		pdfDocument.getPage(1).then(function (page) {
+
+      			page.getTextContent().then(function (textContent) {
+        			textContent.items.forEach(function (textItem) {
+        				txt = txt + textItem.str + '\n';
+
+        			});
+
+        		document.getElementById('testoarea').innerHTML = parsingtext(txt);
+      			});
+    		});
+  		});
+
+	};
+
+	reader.readAsArrayBuffer(url);
+
+
+
+	//document.getElementById('testoconfronto').innerHTML  = checkdata();
+
+	document.getElementById('Importa').disabled = false;
+
+}
+
+function checkdata() {
+	{% if worker == "new"%}
+    //Importa transazione da nota del TOL
+    //occorre inserire un controllo per i campi obbligatori titolo, invest, tipo_id (acquisto=1 o vendita=2)
+		//che risultano necessari, ma possono presentarsi vuoti (soprattutto titolo e invest per nuovi titoli
+		//non in database prima)
+    	if ((tipo in datiestratti) && (titolo in datiestratti) && (invest in datiestratti)) {
+    		//occorre inserire un controllo per notareg e nreg se presenti già in database
+
+    	}
+	{% else %}
+		//Aggiorna transazione {{ worker }} - {{dat.nome}} del {{dat.data|date:"d/m/Y"}}
+	{% endif %}
+
+}
+
+</script>
+
+<br>
+<p>Caricare la nota informativa</p>
+<p><input type="file" name="notareg" id="notareg" onchange="estraipdf()" ></p>
+
+
+<form action="/return_popup_importa/?id={{worker}}" enctype="multipart/form-data" method="post">
+{% csrf_token %}
+<br><br>
+<textarea name="testoarea" id="testoarea" rows="15" cols="40">
+</textarea>
+<textarea name="testoconfronto" id="testoconfronto" rows="15" cols="40">
+</textarea>
+<br>
+<input type="submit" value="Invia" id="Importa" disabled/>
+<input type="reset"  value="Reset">
+</form>
+
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}{{ block.super }}
+
+{{ media }}
+{% endblock %}
+
+{% block object-tools %}
+{% if change %}{% if not is_popup %}
+  <ul class="object-tools">
+    {% block object-tools-items %}
+    <li>
+        {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}
+        <a href="{% add_preserved_filters history_url %}" class="historylink">{% trans "History" %}</a>
+        <a href="javascript:;"
+    		onClick="window.open('/popup_importa/?id={{adminform.form.instance.id}}','titolo','top=30, left=30, width=700, height=550, resizable, status, scrollbars=1, location, fullscreen=no');">Aggiorna da nota TOL</a>
+        <a href="javascript:;"
+    		onClick="window.open('/popup/?id={{adminform.form.instance.id}}&attuale={{adminform.form.instance.posizione}}','titolo','top=30, left=30, width=500, height=550, resizable, status, scrollbars=1, location, fullscreen=no');">Abbina posizione</a>
+    </li>
+    {% if has_absolute_url %}<li><a href="{{ absolute_url }}" class="viewsitelink">{% trans "View on site" %}</a></li>{% endif %}
+    {% endblock %}
+  </ul>
+{% endif %}
+{% else %}{% if not is_popup %}
+<ul class="object-tools">
+</ul>
+{% endif %}{% endif %}
+{% endblock %}

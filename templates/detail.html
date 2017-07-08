@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+{% load humanize %}
+    
+
+    <h1>Investimenti in corso</h1>
+	
+<h3>Costi complessivi: {{altri_dati.totale_commissione_aperti|floatformat:2}}       Imposte versate: {{altri_dati.totale_imposte_aperti|floatformat:2}}</h3>
+<h3>Capitale investito: {{altri_dati.totale_gain_aperti|floatformat:2}}</h3>
+
+	
+	<table>
+	<th>Id
+	<th>Posizione
+	<th>Apertura
+	<th>Quantità
+	<th>C.U.(€)
+	<th>Imposte
+	<th>Commissioni
+	<th>Costo dell'investimento
+
+	<tbody>
+	<br>
+    {% for lista in data %}
+    	<tr class="{% cycle 'odd' 'even' %}">
+    		<td>{{lista.label}}
+		<td>{{lista.titolo}}
+		<td>{{lista.inizio|date:"d/m/Y"}}
+		<td align=right>{{lista.quantity|intcomma}}
+		<td align=right>{{lista.cu|floatformat:5}}
+        	<td align=right>{{lista.imposte|floatformat:2}}
+        	<td align=right>{{lista.commissioni|floatformat:2}}
+        	<td align=right>{{lista.gain|intcomma}}
+        </tr>
+
+    {% endfor %}
+	</tbody>
+	</table>
+	
+	<br><h5>
+Nota: imposte positive indicano valori realmente sostenuti, al netto di crediti; valori negativi indicano crediti da esigere alla chiusura della posizione <br>
+Diversamente, il costo dell'investimento negativo indica il valore investito, inclusi utili o dividendi percepiti durante la posizione; valori positivi indicano invece gain maturati che hanno coperto interamente il costo
+	</h5><br>
+	<br>
+	
+	<h1>Investimenti chiusi</h1>
+<h3>Costi complessivi: {{altri_dati.totale_commissione_chiusi|floatformat:2}}  <BR>   Imposte versate: {{altri_dati.totale_imposte_chiusi|floatformat:2}}</h3>
+<h3>Gain investito: {{altri_dati.totale_gain_chiusi|floatformat:2}}</h3>	
+
+	
+	<table>
+	<th>Id
+	<th>Posizione
+	<th>Durata | gg
+	<th>Imposte
+	<th>Commissioni
+	<th>Altri Utili netti
+	<th>Capital <BR> Gain
+	<th>Risultato <BR> posizione
+	<tbody>
+	<br>
+    {% for list in dat|dictsortreversed:"fine" %}
+    	<tr class="{% cycle 'odd' 'even' %}">
+    		<td>{{list.label}}
+		<td>{{list.titolo}}
+		<td>{{list.inizio|date:"d/m/Y"}} - {{list.fine|date:"d/m/Y"}} | {{list.delta}}
+        	<td align=right>{{list.imposte|floatformat:2}}
+        	<td align=right>{{list.commissioni|floatformat:2}}
+        	<td align=right>{{list.altriutili|floatformat:2}}
+        	<td align=right>{{list.ricavo|floatformat:2}}
+        	<td align=right>{{list.gain|intcomma}}
+        </tr>
+
+    {% endfor %}
+	</tbody>
+	</table>
+	
+{% endblock %}
